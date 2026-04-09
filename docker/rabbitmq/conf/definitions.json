@@ -1,0 +1,123 @@
+{
+  "users": [
+    {
+      "name": "admin",
+      "password_hash": "6zGj+S98O8xY9S/v+8X/v9zPZ0M=", 
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "exchange.direct.commands",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "exchange.topic.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "exchange.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "email.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "exchange.dlx",
+        "x-dead-letter-routing-key": "email.failed"
+      }
+    },
+    {
+      "name": "email.queue.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "notifications.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "exchange.dlx",
+        "x-dead-letter-routing-key": "notifications.failed"
+      }
+    },
+    {
+      "name": "notifications.queue.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "exchange.direct.commands",
+      "vhost": "/",
+      "destination": "email.queue",
+      "destination_type": "queue",
+      "routing_key": "email.send",
+      "arguments": {}
+    },
+    {
+      "source": "exchange.dlx",
+      "vhost": "/",
+      "destination": "email.queue.dlq",
+      "destination_type": "queue",
+      "routing_key": "email.failed",
+      "arguments": {}
+    },
+    {
+      "source": "exchange.topic.events",
+      "vhost": "/",
+      "destination": "notifications.queue",
+      "destination_type": "queue",
+      "routing_key": "user.#",
+      "arguments": {}
+    },
+    {
+      "source": "exchange.dlx",
+      "vhost": "/",
+      "destination": "notifications.queue.dlq",
+      "destination_type": "queue",
+      "routing_key": "notifications.failed",
+      "arguments": {}
+    }
+  ]
+}
