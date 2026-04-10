@@ -1,8 +1,8 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
+import { ClassSerializerInterceptor, Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { createSecurityConfig } from './common/config/security.config';
 import { createValidationConfig } from './common/config/validation.config';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -14,8 +14,14 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('RECUROX_PORT') || 3000;
 
-  // 1. Global Prefix
-  app.setGlobalPrefix('api/v1');
+
+
+  // 1. Global Versioning and prefix
+  app.setGlobalPrefix('api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
 
   // 2. Middleware & Security
   app.use(createSecurityConfig());
@@ -56,6 +62,6 @@ async function bootstrap() {
 
   // 7. Start Application
   await app.listen(port);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  Logger.log(`Application is running on: ${await app.getUrl()}`, 'Bootstrap');
 }
 bootstrap();

@@ -25,6 +25,10 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Observability
+
+The project includes a full observability stack (Prometheus, Grafana, Loki, RabbitMQ). For detailed instructions on how to access and test these services, see the [Observability Guide](docs/OBSERVABILITY.md).
+
 ## Project setup
 
 ```bash

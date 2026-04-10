@@ -16,8 +16,13 @@ export class TransformInterceptor<T> implements NestInterceptor<T, IResponse<T>>
   ): Observable<IResponse<T>> {
     const ctx = context.switchToHttp();
     const response = ctx.getResponse();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<any>();
     const statusCode = response.statusCode;
+
+    // Skip transformation for metrics and health endpoints
+    if (request.url.includes('metrics') || request.url.includes('health')) {
+      return next.handle();
+    }
 
     return next.handle().pipe(
       map((data: any): IResponse<T> => {

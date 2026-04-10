@@ -43,11 +43,13 @@ services:
       - '${RECUROX_RABBITMQ_MGMT_PORT}:15672' # Management UI
     volumes:
       - recurox_rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/conf/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./docker/rabbitmq/conf/definitions.json:/etc/rabbitmq/definitions.json:ro
     environment:
       - RABBITMQ_DEFAULT_USER=${RECUROX_RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RECUROX_RABBITMQ_PASS}
     healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_port_connectivity']
       interval: 10s
       timeout: 5s
       retries: 5

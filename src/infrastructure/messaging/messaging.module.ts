@@ -26,7 +26,10 @@ import { RABBITMQ_EXCHANGES } from './constants';
           },
         ],
         uri: configService.getOrThrow<string>('RECUROX_RABBITMQ_URI'),
-        connectionInitOptions: { wait: true },
+        connectionInitOptions: {
+          wait: true,
+          timeout: 15000,
+        },
         channels: {
           'email-service': {
             prefetchCount: 1,
