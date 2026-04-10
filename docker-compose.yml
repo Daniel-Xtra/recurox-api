@@ -1,25 +1,168 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recurox-api
+    ports:
+      - '${RECUROX_PORT}:3000'
+    env_file:
+      - .env
+    environment:
+      - RECUROX_PORT=${RECUROX_PORT}
+      - RECUROX_RABBITMQ_URI=amqp://${RECUROX_RABBITMQ_USER}:${RECUROX_RABBITMQ_PASS}@recurox-mq:5672
+      - RECUROX_REDIS_URL=redis://recurox-redis:6379
+      - RECUROX_REDIS_DISABLE_SSL=${RECUROX_REDIS_DISABLE_SSL}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+    restart: on-failure
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '${RECUROX_APP_CPU_LIMIT}'
+          memory: '${RECUROX_APP_MEMORY_LIMIT}'
+        reservations:
+          cpus: '${RECUROX_APP_CPU_RESERVATION}'
+          memory: '${RECUROX_APP_MEMORY_RESERVATION}'
+    networks:
+      - recurox-network
+
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: recurox-mq
     hostname: recurox-mq
+    restart: always
     ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
-      - "15692:15692" # Prometheus metrics
+      - '${RECUROX_RABBITMQ_PORT}:5672' # AMQP
+      - '${RECUROX_RABBITMQ_MGMT_PORT}:15672' # Management UI
     volumes:
-      - ./docker/rabbitmq/conf/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      - ./docker/rabbitmq/conf/definitions.json:/etc/rabbitmq/definitions.json
-      - rabbitmq_data:/var/lib/rabbitmq
+      - recurox_rabbitmq_data:/var/lib/rabbitmq
     environment:
-      - RABBITMQ_DEFAULT_USER=${RECUROX_RABBITMQ_USER:-admin}
-      - RABBITMQ_DEFAULT_PASS=${RECUROX_RABBITMQ_PASS:-admin_password}
+      - RABBITMQ_DEFAULT_USER=${RECUROX_RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RECUROX_RABBITMQ_PASS}
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: '${RECUROX_MQ_MEMORY_LIMIT}'
+    networks:
+      - recurox-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: recurox-redis
+    restart: always
+    ports:
+      - '${RECUROX_REDIS_PORT}:6379'
+    volumes:
+      - recurox_redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: '${RECUROX_REDIS_MEMORY_LIMIT}'
+    networks:
+      - recurox-network
+
+  db:
+    image: postgres:16-alpine
+    container_name: recurox-db
+    restart: always
+    ports:
+      - '${RECUROX_POSTGRES_PORT}:5432'
+    environment:
+      - POSTGRES_USER=${RECUROX_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${RECUROX_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${RECUROX_POSTGRES_DB}
+    volumes:
+      - recurox_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: '${RECUROX_DB_MEMORY_LIMIT}'
+    networks:
+      - recurox-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: recurox-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - recurox_prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/console_templates'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9090:9090'
+    networks:
+      - recurox-network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: recurox-loki
+    restart: unless-stopped
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./docker/monitoring/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - recurox-network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: recurox-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/monitoring/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - recurox-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: recurox-grafana
+    restart: unless-stopped
+    ports:
+      - '3001:3000'
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - recurox_grafana_data:/var/lib/grafana
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - recurox-network
+    depends_on:
+      - prometheus
+      - loki
+
+networks:
+  recurox-network:
+    driver: bridge
 
 volumes:
-  rabbitmq_data:
-    driver: local
+  recurox_rabbitmq_data:
+  recurox_redis_data:
+  recurox_db_data:
+  recurox_prometheus_data:
+  recurox_grafana_data:
