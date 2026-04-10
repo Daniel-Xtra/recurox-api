@@ -1,0 +1,16 @@
+node_modules
+dist
+pnpm-lock.yaml
+.env
+.git
+.github
+.gitignore
+*.md
+Dockerfile
+docker-compose.yml
+test
+coverage
+npm-debug.log
+pnpm-debug.log
+yarn-debug.log
+yarn-error.log
